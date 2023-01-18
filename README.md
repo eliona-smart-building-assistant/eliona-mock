@@ -8,7 +8,7 @@ You need a database initialized with mock objects and an Eliona API server. The 
 
 - [Eliona API v2 server](https://hub.docker.com/repository/docker/eliona/api-v2)
 
-It is best to start these images with Docker compose. You can use this [docker-compose.yml](docker-compose.yml) as template. 
+It is best to start these images with Docker compose. You can use this `docker-compose.yml` as template. 
 
 ## Usage ##
 
