@@ -100,8 +100,10 @@ create table if not exists public.heap
 create table if not exists public.eliona_app (
     app_name    text primary key,
     category    text,
-    active      boolean default false,
-    initialised boolean default false
+    enable      boolean default false,
+    version        text,
+    initialized_at timestamp with time zone,
+    metadata       json
 );
 
 insert into public.eliona_app (app_name, category, active)
