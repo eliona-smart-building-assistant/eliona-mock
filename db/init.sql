@@ -95,19 +95,25 @@ create table if not exists public.heap
     update_cnt          bigint                   default 1     not null,
     update_cnt_reset_ts timestamp with time zone default now() not null,
     primary key (asset_id, subtype)
-    );
-
-create table if not exists public.eliona_app (
-    app_name    text primary key,
-    category    text,
-    enable      boolean default false,
-    version        text,
-    initialized_at timestamp with time zone,
-    metadata       json
 );
 
-insert into public.eliona_app (app_name, category, active)
-values  ('example', 'app', true);
+create table eliona_app (
+    app_name       text  not null primary key,
+    category       text,
+    enable         boolean default false,
+    version        text,
+    created_at     timestamp with time zone default now(),
+    modified_at    timestamp with time zone,
+    initialized_at timestamp with time zone,
+    metadata       json,
+    icon           text,
+    initialised    boolean
+);
+
+insert into public.eliona_app (app_name, category, enable)
+values
+    ('template', 'app', true),
+    ('example', 'app', true);
 
 create schema if not exists versioning;
 
