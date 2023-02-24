@@ -1,0 +1,19 @@
+{
+  "name": "eliona-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "database.hostname": "database",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "secret",
+    "database.dbname": "postgres",
+    "database.server.name": "eliona",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": false,
+    "value.converter.schemas.enable": false,
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "decimal.handling.mode": "double",
+    "errors.tolerance": "all"
+  }
+}

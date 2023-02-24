@@ -95,19 +95,19 @@ create table if not exists public.heap
     update_cnt          bigint                   default 1     not null,
     update_cnt_reset_ts timestamp with time zone default now() not null,
     primary key (asset_id, subtype)
-);
+    );
 
 create table eliona_app (
-    app_name       text  not null primary key,
-    category       text,
-    enable         boolean default false,
-    version        text,
-    created_at     timestamp with time zone default now(),
-    modified_at    timestamp with time zone,
-    initialized_at timestamp with time zone,
-    metadata       json,
-    icon           text,
-    initialised    boolean
+                            app_name       text  not null primary key,
+                            category       text,
+                            enable         boolean default false,
+                            version        text,
+                            created_at     timestamp with time zone default now(),
+                            modified_at    timestamp with time zone,
+                            initialized_at timestamp with time zone,
+                            metadata       json,
+                            icon           text,
+                            initialised    boolean
 );
 
 insert into public.eliona_app (app_name, category, enable)
@@ -118,9 +118,9 @@ values
 create schema if not exists versioning;
 
 create table if not exists versioning.patches (
-    app_name    text                                   not null,
-    patch_name  text                                   not null,
-    applied_tsz timestamp with time zone default now() not null,
+                                                  app_name    text                                   not null,
+                                                  patch_name  text                                   not null,
+                                                  applied_tsz timestamp with time zone default now() not null,
     applied_by  text                                   not null,
     requires    text[],
     conflicts   text[],
@@ -128,97 +128,97 @@ create table if not exists versioning.patches (
     );
 
 create table if not exists public.widget (
-    id           serial unique,
-    dashboard_id integer not null,
-    type_id      integer not null,
-    seq          smallint,
-    detail       json,
-    asset_id     integer,
-    primary key (dashboard_id, id)
-);
+                                             id           serial unique,
+                                             dashboard_id integer not null,
+                                             type_id      integer not null,
+                                             seq          smallint,
+                                             detail       json,
+                                             asset_id     integer,
+                                             primary key (dashboard_id, id)
+    );
 
 create table if not exists public.widget_data (
-    widget_id         integer not null,
-    widget_element_id integer not null,
-    asset_id          integer,
-    data              json,
-    id                serial primary key
+                                                  widget_id         integer not null,
+                                                  widget_element_id integer not null,
+                                                  asset_id          integer,
+                                                  data              json,
+                                                  id                serial primary key
 );
 
 create table if not exists public.widget_type (
-    type_id              serial primary key,
-    name                 text   not null unique,
-    tag                  text,
-    translation          jsonb,
-    icon                 text,
-    custom               boolean default true not null,
-    with_alarm           boolean,
-    with_timespan_select boolean
+                                                  type_id              serial primary key,
+                                                  name                 text   not null unique,
+                                                  tag                  text,
+                                                  translation          jsonb,
+                                                  icon                 text,
+                                                  custom               boolean default true not null,
+                                                  with_alarm           boolean,
+                                                  with_timespan_select boolean
 );
 
 create table if not exists public.widget_element (
-    id       serial primary key,
-    type_id  integer not null,
-    category text    not null,
-    seq      smallint default 0,
-    config   json
+                                                     id       serial primary key,
+                                                     type_id  integer not null,
+                                                     category text    not null,
+                                                     seq      smallint default 0,
+                                                     config   json
 );
 
 create table if not exists public.alarm (
-    alarm_id    integer                  not null  primary key,
-    asset_id    integer                  not null,
-    subtype     text,
-    attribute   text,
-    prio        smallint                 not null,
-    val         double precision,
-    ack_p       boolean                  not null,
-    ts          timestamp with time zone not null,
-    gone_ts     timestamp with time zone,
-    ack_ts      timestamp with time zone,
-    auto_quench timestamp with time zone,
-    multi       integer default 1        not null,
-    message     json                     not null,
-    ack_text    text,
-    ack_user_id text
+                                            alarm_id    integer                  not null  primary key,
+                                            asset_id    integer                  not null,
+                                            subtype     text,
+                                            attribute   text,
+                                            prio        smallint                 not null,
+                                            val         double precision,
+                                            ack_p       boolean                  not null,
+                                            ts          timestamp with time zone not null,
+                                            gone_ts     timestamp with time zone,
+                                            ack_ts      timestamp with time zone,
+                                            auto_quench timestamp with time zone,
+                                            multi       integer default 1        not null,
+                                            message     json                     not null,
+                                            ack_text    text,
+                                            ack_user_id text
 );
 
 create table if not exists public.alarm_cfg (
-    alarm_id    integer generated by default as identity primary key,
-    asset_id    integer                       not null,
-    subtype     text    default 'input'::text not null,
-    attribute   text                          not null,
-    enable      boolean default true          not null,
-    prio        smallint                      not null,
-    ack_p       boolean                       not null,
-    auto_quench interval,
-    equal       double precision,
-    low         double precision,
-    high        double precision,
-    message     json,
-    subject     text,
-    urldoc      text,
-    notify_on   char,
-    dont_mask   boolean default false         not null,
-    tags        text[]
+                                                alarm_id    integer generated by default as identity primary key,
+                                                asset_id    integer                       not null,
+                                                subtype     text    default 'input'::text not null,
+                                                attribute   text                          not null,
+                                                enable      boolean default true          not null,
+                                                prio        smallint                      not null,
+                                                ack_p       boolean                       not null,
+                                                auto_quench interval,
+                                                equal       double precision,
+                                                low         double precision,
+                                                high        double precision,
+                                                message     json,
+                                                subject     text,
+                                                urldoc      text,
+                                                notify_on   char,
+                                                dont_mask   boolean default false         not null,
+                                                tags        text[]
 );
 
 create table if not exists public.alarm_history (
-    alarm_id    integer,
-    asset_id    integer                  not null,
-    subtype     text                     not null,
-    attribute   text,
-    prio        smallint                 not null,
-    val         double precision,
-    ack_p       boolean                  not null,
-    ts          timestamp with time zone not null,
-    gone_ts     timestamp with time zone,
-    ack_ts      timestamp with time zone,
-    multi       integer                  not null,
-    message     json,
-    ack_text    text,
-    ack_user_id text,
-    primary key (ts, asset_id, subtype)
-);
+                                                    alarm_id    integer,
+                                                    asset_id    integer                  not null,
+                                                    subtype     text                     not null,
+                                                    attribute   text,
+                                                    prio        smallint                 not null,
+                                                    val         double precision,
+                                                    ack_p       boolean                  not null,
+                                                    ts          timestamp with time zone not null,
+                                                    gone_ts     timestamp with time zone,
+                                                    ack_ts      timestamp with time zone,
+                                                    multi       integer                  not null,
+                                                    message     json,
+                                                    ack_text    text,
+                                                    ack_user_id text,
+                                                    primary key (ts, asset_id, subtype)
+    );
 
 create table if not exists public.edge_bridge
 (
@@ -243,7 +243,7 @@ create table if not exists public.eliona_node
     model       text,
     description text,
     enable      boolean default false                                                not null
-);
+    );
 
 create table if not exists public.iosys_access
 (
@@ -265,7 +265,7 @@ create table if not exists public.iosys_access
     filter          text,
     tau             double precision,
     unique (device_id, iosvar)
-);
+    );
 
 create table if not exists public.iosys_device
 (
@@ -292,7 +292,7 @@ create table if not exists public.mbus_access
     zero      double precision,
     unique (device_id, field),
     unique (asset_id, subtype, attribute)
-);
+    );
 
 create table if not exists public.mbus_device
 (
@@ -364,7 +364,7 @@ create table if not exists public.dashboard
     name         text,
     seq          smallint default 0,
     primary key (user_id, proj_id, dashboard_id)
-);
+    );
 
 create table if not exists public.eliona_secret
 (
