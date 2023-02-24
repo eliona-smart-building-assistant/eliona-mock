@@ -25,32 +25,75 @@ networks:
 
 services:
 
-  # Simplified Eliona database as backend for the API-v2 server.
-  # The database can be connected with: CONNECTION_STRING=postgres://postgres:postgres@localhost:5432
+  # Simplified Eliona database as backend.
+  # CONNECTION_STRING=postgres://postgres:secret@localhost:5432
   database:
-    container_name: database-mock
     image: debezium/postgres:12
+    container_name: database
+    networks:
+      eliona-mock-network:
     environment:
       POSTGRES_PASSWORD: secret
       PGPORT: 5432
       TZ: Europe/Zurich
-    networks:
-      eliona-mock-network:
     volumes:
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init/database.sql:/docker-entrypoint-initdb.d/init.sql
     restart: always
     ports:
       - "5432:5432"
 
-  # Server representing the Eliona API v2.
-  # The API endpoint can be connected with: API_ENDPOINT=http://localhost:8082/v2
+  # Server representing the Eliona API.
+  # API_ENDPOINT=http://localhost:3000/v2
   api-v2:
-    container_name: api-v2
     image: eliona/api-v2:latest
-    environment:
-      CONNECTION_STRING: postgres://postgres:secret@database-mock:5432
+    container_name: api-v2
     networks:
       eliona-mock-network:
+    depends_on:
+      - database
+    environment:
+      CONNECTION_STRING: postgres://postgres:secret@database:5432
     restart: always
     ports:
       - "3000:3000"
+
+  # Kafka broker
+  # BROKERS=localhost:9092
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    networks:
+      eliona-mock-network:
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,EXTERNAL://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_PROCESS_ROLES: controller,broker
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - ./init/kraft-update.sh:/kraft-update.sh
+    command: "bash -c '/kraft-update.sh && /etc/confluent/docker/run'"
+
+  debezium:
+    image: debezium/connect:1.9
+    container_name: debezium
+    networks:
+      eliona-mock-network:
+    depends_on:
+      - kafka
+      - database
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: debezium
+      CONFIG_STORAGE_TOPIC: eliona.debezium.configs
+      OFFSET_STORAGE_TOPIC: eliona.debezium.offsets
+      STATUS_STORAGE_TOPIC: eliona.debezium.statuses
+    volumes:
+      - ./init/debezium.sh:/debezium.sh
+      - ./init/eliona-connector.json:/eliona-connector.json
+    command:
+      - /debezium.sh
