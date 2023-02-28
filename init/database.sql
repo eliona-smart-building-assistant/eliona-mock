@@ -51,8 +51,12 @@ create table if not exists public.asset
     loc_ref     integer,
     func_ref    integer,
     urldoc      text,
+    created_by  text ,
+    created_at  timestamp with time zone default now() not null,
+    modified_by text,
+    modified_at timestamp with time zone default now() not null,
     unique (gai, proj_id)
-    );
+);
 
 create table if not exists public.attribute_schema
 (
