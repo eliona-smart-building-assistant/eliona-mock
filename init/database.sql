@@ -378,3 +378,45 @@ create table if not exists public.eliona_secret
 
 insert into public.eliona_secret (schema, secret)
 values  ('api', 'secret');
+
+drop function if exists heap_notify_cast;
+create function heap_notify_cast(p heap) returns json
+    immutable
+    strict
+    language sql
+as
+$$
+SELECT
+    json_build_object(
+            'asset_id', p.asset_id,
+            'subtype', p.subtype,
+            'ts', p.ts,
+            'data', p.data,
+            'valid', p.valid,
+            'uts', date_part('epoch', p.ts)::float8);
+$$;
+
+drop function if exists heap_notify;
+create function heap_notify() returns trigger
+    language plpgsql
+as
+$$
+begin
+    case TG_OP
+        when 'UPDATE'
+            then if old.ts != new.ts then perform pg_notify('heap',heap_notify_cast(new)::text ) ;  end if ;
+        when 'DELETE'
+            then perform pg_notify('heap','~'||row_to_json(old)::text) ;
+        when 'INSERT'
+            then  perform pg_notify('heap',heap_notify_cast(new)::text ) ;
+        end case ;
+    return null ;
+end ;
+$$;
+
+drop trigger if exists heap_notify ON heap;
+CREATE TRIGGER heap_notify
+    AFTER INSERT OR UPDATE OR DELETE
+    ON heap
+    FOR EACH ROW
+EXECUTE PROCEDURE heap_notify('heap');
