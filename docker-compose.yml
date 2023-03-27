@@ -61,6 +61,7 @@ services:
   # BROKERS=localhost:9092
   kafka:
     image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka
     networks:
       eliona-mock-network:
     ports:
