@@ -101,23 +101,38 @@ create table if not exists public.heap
     primary key (asset_id, subtype)
     );
 
-create table eliona_app (
-                            app_name       text  not null primary key,
-                            category       text,
-                            enable         boolean default false,
-                            version        text,
-                            created_at     timestamp with time zone default now(),
-                            modified_at    timestamp with time zone,
-                            initialized_at timestamp with time zone,
-                            metadata       json,
-                            icon           text,
-                            initialised    boolean
+create table if not exists public.eliona_app
+(
+    app_name       text  not null primary key,
+    enable         boolean                  default false,
+    version        text,
+    created_at     timestamp with time zone default now(),
+    modified_at    timestamp with time zone,
+    initialized_at timestamp with time zone,
+    initialised    boolean,
+    modified_by    text
 );
 
-insert into public.eliona_app (app_name, category, enable)
+insert into public.eliona_app (app_name, enable)
 values
-    ('template', 'app', true),
-    ('example', 'app', true);
+    ('template', true),
+    ('example', true);
+
+create table if not exists public.eliona_store
+(
+    app_name   text not null primary key,
+    category   text,
+    version    text not null,
+    metadata   json,
+    icon       text,
+    created_at timestamp with time zone default now(),
+    iv_app     numeric
+);
+
+insert into public.eliona_store (app_name, category, version)
+values
+    ('template', 'app', '1.0.0'),
+    ('example', 'app', '1.0.0');
 
 create schema if not exists versioning;
 
