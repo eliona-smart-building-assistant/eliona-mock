@@ -29,14 +29,33 @@ create table if not exists public.asset_type
     translation        jsonb,
     urldoc             text,
     allowed_inactivity interval,
-    iv_asset_type      integer,
+    iv_asset_type      numeric,
     icon               text
+);
+
+create sequence if not exists public.eliona_project_proj_id_seq;
+
+create table public.eliona_project
+(
+    proj_id     text    default (nextval('eliona_project_proj_id_seq'::regclass))::text not null primary key,
+    displayname text                                                                    not null unique,
+    location    text,
+    email       text,
+    regexp      text,
+    names       text[],
+    icon        text,
+    logo        text,
+    palette     json,
+    logo_big    boolean default false,
+    logo_white  boolean default false
 );
 
 create table if not exists public.asset
 (
-    asset_id    serial primary key,
-    proj_id     text,
+    asset_id    serial constraint asset_asset_id_idx primary key,
+    proj_id     text
+        references public.eliona_project
+            on update cascade on delete set null,
     gai         text not null,
     name        text,
     device_pkey text unique,
@@ -46,26 +65,46 @@ create table if not exists public.asset
     storey      smallint,
     description text,
     tags        text[],
-    ar          boolean default false not null,
-    tracker     boolean default false not null,
-    loc_ref     integer,
-    func_ref    integer,
-    urldoc      text,
+    ar          boolean                  default false                        not null,
+    tracker     boolean                  default false                        not null,
+    urldoc      json,
     created_by  text,
     created_at  timestamp with time zone default now() not null,
     modified_by text,
     modified_at timestamp with time zone default now() not null,
+    deleted_by  text,
+    deleted_at  timestamp with time zone,
+    archived    boolean generated always as ((deleted_at IS NOT NULL)) stored not null,
     unique (gai, proj_id)
+);
+
+create extension if not exists ltree;
+
+create table if not exists public.asset_tree
+(
+    asset_id  integer not null primary key,
+    name      text,
+    loc_path  ltree unique,
+    func_path ltree unique
+);
+
+create table if not exists public.asset_pkey
+(
+    asset_id integer not null
+        references public.asset
+            on delete cascade,
+    uin      text unique
 );
 
 create table if not exists public.attribute_schema
 (
     id              serial primary key,
-    asset_type      text                     not null,
+    asset_type      text                          not null,
     attribute_type  text,
-    attribute       text                     not null,
-    subtype         text    default ''::text not null,
-    enable          boolean default true     not null,
+    attribute       text                          not null,
+    subtype         text    default 'input'::text not null,
+    is_digital      boolean default false         not null,
+    enable          boolean default true          not null,
     translation     jsonb,
     unit            text,
     formula         text,
@@ -73,19 +112,18 @@ create table if not exists public.attribute_schema
     zero            double precision,
     precision       smallint,
     min             numeric,
-    is_digital      boolean default false    not null,
     max             numeric,
     step            numeric,
     map             json,
     pipeline_mode   text,
     pipeline_raster text[],
-    viewer          boolean default false    not null,
-    ar              boolean default false    not null,
+    viewer          boolean default false         not null,
+    ar              boolean default false         not null,
     seq             smallint,
     source_path     text[],
     virtual         boolean,
     unique (asset_type, subtype, attribute)
-    );
+);
 
 create table if not exists public.heap
 (
@@ -98,8 +136,41 @@ create table if not exists public.heap
     allowed_inactivity  interval,
     update_cnt          bigint                   default 1     not null,
     update_cnt_reset_ts timestamp with time zone default now() not null,
+    pid                 integer,
+    source              text,
     primary key (asset_id, subtype)
-    );
+);
+
+ALTER TABLE public.heap REPLICA IDENTITY FULL;
+
+CREATE OR REPLACE FUNCTION heap_counter ()
+    RETURNS TRIGGER -- before
+    LANGUAGE plpgsql
+AS $$
+BEGIN
+    -- Das ist ein reiner update-Trigger.
+    -- Das allererste Insert würde, selbst wenn es eine Rasterung hätte, würde hier nicht ankommen.
+    -- Insert ... on conflict .. do update schon.
+    -- Leider würde dabei ein on insert or update - Trigger zweimal aufgerufen!
+    -- Ein After-Trigger hat dieses Problem nicht, der wird nur zweimal markiert und hinterher einmal aufgerufen.
+    NEW.update_cnt = NEW.update_cnt + 1;
+    NEW.pid        = pg_backend_pid();
+    IF (current_query() !~ 'source') THEN
+        NEW.source = NULL; -- TODO: reset "source" spec, if not in the update
+    END IF;
+
+    RETURN NEW;
+END
+$$;
+
+-- Kann vielleicht auch mal entfallen.
+DROP TRIGGER IF EXISTS heap_counter ON heap;
+
+CREATE TRIGGER heap_counter
+    BEFORE UPDATE OF ts ON heap
+    FOR EACH ROW
+    WHEN (old.ts != new.ts)
+EXECUTE PROCEDURE heap_counter ();
 
 create table if not exists public.eliona_app
 (
@@ -126,7 +197,8 @@ create table if not exists public.eliona_store
     metadata   json,
     icon       text,
     created_at timestamp with time zone default now(),
-    iv_app     numeric
+    iv_app     numeric,
+    repository text default 'internal'::text not null
 );
 
 insert into public.eliona_store (app_name, category, version)
@@ -183,33 +255,34 @@ create table if not exists public.widget_element (
                                                      config   json
 );
 
-create table if not exists public.alarm (
-                                            alarm_id    integer                  not null  primary key,
-                                            asset_id    integer                  not null,
-                                            subtype     text,
-                                            attribute   text,
-                                            prio        smallint                 not null,
-                                            val         double precision,
-                                            ack_p       boolean                  not null,
-                                            ts          timestamp with time zone not null,
-                                            gone_ts     timestamp with time zone,
-                                            ack_ts      timestamp with time zone,
-                                            auto_quench timestamp with time zone,
-                                            multi       integer default 1        not null,
-                                            message     json                     not null,
-                                            ack_text    text,
-                                            ack_user_id text
+create table if not exists public.alarm
+(
+    alarm_id    integer                  not null primary key,
+    asset_id    integer                  not null,
+    subtype     text,
+    attribute   text,
+    prio        smallint                 not null,
+    val         double precision,
+    ack_p       boolean                  not null,
+    ts          timestamp with time zone not null,
+    gone_ts     timestamp with time zone,
+    ack_ts      timestamp with time zone,
+    multi       integer default 1        not null,
+    message     json                     not null,
+    ack_text    text,
+    ack_user_id text
 );
 
-create table if not exists public.alarm_cfg (
-    alarm_id    integer generated by default as identity        primary key,
-    asset_id    integer                                        not null,
-    subtype     text                     default 'input'::text not null,
-    attribute   text                                           not null,
-    enable      boolean                  default true          not null,
-    prio        smallint                                       not null,
-    ack_p       boolean                                        not null,
-    auto_ticket boolean                  default false         not null,
+create table if not exists public.alarm_cfg
+(
+    alarm_id    integer generated by default as identity primary key,
+    asset_id    integer                                         not null,
+    subtype     text                     default 'input'::text  not null,
+    attribute   text,
+    enable      boolean                  default true           not null,
+    prio        smallint                                        not null,
+    ack_p       boolean                                         not null,
+    auto_ticket boolean                  default false          not null,
     equal       double precision,
     low         double precision,
     high        double precision,
@@ -218,30 +291,32 @@ create table if not exists public.alarm_cfg (
     subject     text,
     urldoc      text,
     notify_on   char                     default 'R'::bpchar,
-    dont_mask   boolean                  default false         not null,
-    created_by  text                     ,
-    created_at  timestamp with time zone default now()         not null,
-    modified_by text                     ,
-    modified_at timestamp with time zone default now()         not null
+    dont_mask   boolean                  default false          not null,
+    created_by  text,
+    created_at  timestamp with time zone default now()          not null,
+    modified_by text,
+    modified_at timestamp with time zone default now()          not null,
+    func_id     integer,
+    check_type  text                     default 'limits'::text not null
 );
 
 create table if not exists public.alarm_history (
-                                                    alarm_id    integer,
-                                                    asset_id    integer                  not null,
-                                                    subtype     text                     not null,
-                                                    attribute   text,
-                                                    prio        smallint                 not null,
-                                                    val         double precision,
-                                                    ack_p       boolean                  not null,
-                                                    ts          timestamp with time zone not null,
-                                                    gone_ts     timestamp with time zone,
-                                                    ack_ts      timestamp with time zone,
-                                                    multi       integer                  not null,
-                                                    message     json,
-                                                    ack_text    text,
-                                                    ack_user_id text,
-                                                    primary key (ts, asset_id, subtype)
-    );
+    alarm_id    integer,
+    asset_id    integer                  not null,
+    subtype     text                     not null,
+    attribute   text,
+    prio        smallint                 not null,
+    val         double precision,
+    ack_p       boolean                  not null,
+    ts          timestamp with time zone not null,
+    gone_ts     timestamp with time zone,
+    ack_ts      timestamp with time zone,
+    multi       integer                  not null,
+    message     json,
+    ack_text    text,
+    ack_user_id text,
+    primary key (ts, asset_id, subtype)
+);
 
 create table if not exists public.edge_bridge
 (
@@ -348,26 +423,37 @@ create table if not exists public.acl_key_access
 
 insert into public.acl_key_access (security_id, object_id, mask, displayname, principal, path, public, key_id)
 values  (null, null, 3, null, false, 'api.nodes', false, 1),
-        (null, null, 3, null, false, 'api.apps.patches', false, 1),
-        (null, null, 3, null, false, 'api.data.trends', false, 1),
-        (null, null, 3, null, false, 'api.alarms.highest', false, 1),
-        (null, null, 3, null, false, 'api.alarms.history', false, 1),
-        (null, null, 3, null, false, 'api.dashboards', false, 1),
-        (null, null, 3, null, false, 'api.agent.devices.mappings', false, 1),
-        (null, null, 3, null, false, 'api.data.listener', false, 1),
-        (null, null, 3, null, false, 'api.agent.devices', false, 1),
-        (null, null, 3, null, false, 'api.widget.types', false, 1),
-        (null, null, 3, null, false, 'api.alarm.rules', false, 1),
-        (null, null, 3, null, false, 'api.alarms', false, 1),
-        (null, null, 3, null, false, 'api.aggregations', false, 1),
-        (null, null, 3, null, false, 'api.asset.types', false, 1),
         (null, null, 3, null, false, 'api.agents', false, 1),
+        (null, null, 3, null, false, 'api.agent.devices', false, 1),
+        (null, null, 3, null, false, 'api.agent.devices.mappings', false, 1),
+        (null, null, 3, null, false, 'api.alarms', false, 1),
+        (null, null, 3, null, false, 'api.alarms.history', false, 1),
+        (null, null, 3, null, false, 'api.alarms.highest', false, 1),
+        (null, null, 3, null, false, 'api.alarm.rules', false, 1),
+        (null, null, 3, null, false, 'api.alarm.listener', false, 1),
+        (null, null, 3, null, false, 'api.apps', false, 1),
+        (null, null, 3, null, false, 'api.apps.patches', false, 1),
+        (null, null, 3, null, false, 'api.asset.types', false, 1),
+        (null, null, 3, null, false, 'api.asset.types.attributes', false, 1),
+        (null, null, 3, null, false, 'api.assets', false, 1),
+        (null, null, 3, null, false, 'api.bulk.assets', false, 1),
+        (null, null, 3, null, false, 'api.aggregations', false, 1),
+        (null, null, 3, null, false, 'api.data.trends', false, 1),
+        (null, null, 3, null, false, 'api.data.listener', false, 1),
         (null, null, 3, null, false, 'api.data.aggregated', false, 1),
         (null, null, 3, null, false, 'api.data', false, 1),
-        (null, null, 3, null, false, 'api.assets', false, 1),
-        (null, null, 3, null, false, 'api.apps', false, 1),
-        (null, null, 3, null, false, 'api.asset.types.attributes', false, 1),
-        (null, null, 3, null, false, 'api.dashboards.widgets', false, 1);
+        (null, null, 3, null, false, 'api.bulk.data', false, 1),
+        (null, null, 3, null, false, 'api.widget.types', false, 1),
+        (null, null, 3, null, false, 'api.dashboards', false, 1),
+        (null, null, 3, null, false, 'api.dashboards.widgets', false, 1),
+        (null, null, 3, null, false, 'api.message.receipts', false, 1),
+        (null, null, 3, null, false, 'api.send.mail', false, 1),
+        (null, null, 3, null, false, 'api.send.notification', false, 1),
+        (null, null, 3, null, false, 'api.qr.codes', false, 1),
+        (null, null, 3, null, false, 'api.users', false, 1),
+        (null, null, 3, null, false, 'api.projects', false, 1),
+        (null, null, 3, null, false, 'api.tags', false, 1),
+        (null, null, 3, null, false, 'attribute.display', false, 1);
 
 create table if not exists public.keyauth (
     key_id  integer,
@@ -395,31 +481,33 @@ create table if not exists public.eliona_secret
 
 create sequence if not exists public.eliona_user_user_id_seq;
 
-create table if not exists public.eliona_user (
-    user_id     text                     default (nextval('eliona_user_user_id_seq'::regclass))::text not null
-        primary key,
-    firstname   text,
-    lastname    text,
-    language    text            default 'en'::text,
-    role        text                     default 'regular'::text                                      not null,
-    tags        text[],
-    validity    interval                 default '08:00:00'::interval,
-    email       text                                                                            not null,
-    password    text,
-    hidden      boolean                  default false                                                not null,
-    schema      text                     default 'api'::text                                          not null,
-    phone       text,
-    mobile      text,
-    pager       text,
-    mail2sms    text,
-    slack       text,
-    google_chat text,
-    created_by  text                     ,
-    created_at  timestamp with time zone default now()                                                not null,
-    modified_by text                     ,
-    modified_at timestamp with time zone default now()                                                not null,
-    last_login  timestamp with time zone,
-    archived    boolean                  default false                                                not null
+create table if not exists public.eliona_user
+(
+    user_id      text                     default (nextval('eliona_user_user_id_seq'::regclass))::text not null primary key,
+    firstname    text,
+    lastname     text,
+    language     text            default 'en'::text,
+    tags         text[],
+    validity     interval                 default '08:00:00'::interval,
+    email        text                                                                            not null,
+    password     text,
+    hidden       boolean                  default false                                                not null,
+    schema       text                     default 'api'::text                                          not null,
+    phone        text,
+    mobile       text,
+    pager        text,
+    mail2service json,
+    slack        text,
+    google_chat  text,
+    created_at   timestamp with time zone default now()                                                not null,
+    modified_at  timestamp with time zone default now()                                                not null,
+    last_login   timestamp with time zone,
+    archived     boolean                  default false                                                not null,
+    created_by   text,
+    modified_by  text,
+    role_id      integer                  default 2                                                    not null,
+    deleted_by   text,
+    deleted_at   timestamp with time zone
 );
 
 create unique index if not exists eliona_user_lower_email
@@ -516,129 +604,37 @@ INSERT INTO public.eliona_config (cust_id, owner_id, displayname, domain_name, r
                                                          'v10.0.4', 100, 5, 5, 25, 50, 75, 100, 1,
                                                          null, '2023-05-31 11:44:44.158240 +00:00', 1);
 
-drop function if exists heap_notify_cast;
-create function heap_notify_cast(p heap) returns json
-    immutable
-    strict
-    language sql
-as
-$$
-SELECT
-    json_build_object(
-            'asset_id', p.asset_id,
-            'subtype', p.subtype,
-            'ts', p.ts,
-            'data', p.data,
-            'valid', p.valid,
-            'uts', date_part('epoch', p.ts)::float8);
-$$;
+create schema if not exists import;
 
-drop function if exists heap_notify;
-create function heap_notify() returns trigger
-    language plpgsql
-as
-$$
-begin
-    case TG_OP
-        when 'UPDATE'
-            then if old.ts != new.ts then perform pg_notify('heap',heap_notify_cast(new)::text ) ;  end if ;
-        when 'DELETE'
-            then perform pg_notify('heap','~'||row_to_json(old)::text) ;
-        when 'INSERT'
-            then  perform pg_notify('heap',heap_notify_cast(new)::text ) ;
-        end case ;
-    return null ;
-end ;
-$$;
-
-drop trigger if exists heap_notify ON heap;
-CREATE TRIGGER heap_notify
-    AFTER INSERT OR UPDATE OR DELETE
-    ON heap
-    FOR EACH ROW
-EXECUTE PROCEDURE heap_notify();
-
-drop function if exists alarm_check;
-create function alarm_check(h heap, cfg alarm_cfg) returns void
-    language plpgsql
-as $$
-DECLARE
-    val float8;
-    tval float8;
-    inserted record;
-    asset record;
-BEGIN
-    IF jsonb_typeof(h.data->cfg.attribute) = 'number' THEN
-        tval = h.data->cfg.attribute ;
-        IF tval = cfg.equal THEN
-            val = tval ;
-        ELSIF tval >= cfg.high THEN
-            val = tval ;
-        ELSIF tval <= cfg.low THEN
-            val = tval ;
-        END IF ;
-    END IF ;
-
-    SELECT
-        proj_id,
-        gai,
-        name,
-        description
-    FROM
-        public.asset
-    WHERE
-            asset_id = cfg.asset_id INTO asset;
-
-    IF val IS NOT NULL AND cfg.enable THEN
-        INSERT INTO public.alarm (alarm_id, asset_id, subtype, attribute, prio, ack_p, ts, val, message)
-        VALUES (cfg.alarm_id, h.asset_id, h.subtype, cfg.attribute, cfg.prio, cfg.ack_p, h.ts, val, cfg.message)
-        ON CONFLICT (alarm_id) DO UPDATE
-            SET gone_ts = NULL, multi = alarm.multi + 1, message = cfg.message
-        RETURNING
-            * INTO inserted;
-    ELSE  -- val is null
-        UPDATE
-            public.alarm
-        SET
-            gone_ts = h.ts,
-            ack_p = cfg.ack_p
-        WHERE
-                alarm_id = cfg.alarm_id
-          AND gone_ts IS NULL;
-        DELETE FROM public.alarm
-        WHERE alarm_id = cfg.alarm_id AND (NOT cfg.ack_p OR ack_ts IS NOT NULL);
-    END IF ;
-END ;
-$$;
-
-drop function if exists alarm_trigger;
-create function alarm_trigger() returns trigger
-    language plpgsql
-as
-$$
-DECLARE
-    cfg public.alarm_cfg;
-BEGIN
-    FOR cfg IN
-        SELECT
-            *
-        FROM
-            public.alarm_cfg
-        WHERE
-                asset_id = NEW.asset_id
-          AND subtype = NEW.subtype
-          AND ENABLE LOOP
-            PERFORM
-                alarm_check (new, cfg);
-        END LOOP;
-    RETURN NULL;
-END;
-$$;
-
-create trigger alarm_trigger
-    after insert or update
-        of ts
-    on public.heap
-    for each row
-execute procedure public.alarm_trigger();
-
+create table if not exists import.asset
+(
+    id           bigint generated by default as identity primary key,
+    batch_id     integer                  default 0                          not null,
+    resource_id  text                                                        not null unique,
+    asset_id     integer
+                                                                             references public.asset
+                                                                                 on update cascade on delete set null,
+    proj_id      text,
+    gai          text                                                        not null,
+    name         text,
+    asset_type   text,
+    lat          double precision,
+    lon          double precision,
+    storey       smallint,
+    description  text,
+    tags         text[],
+    ar           boolean                  default false                      not null,
+    tracker      boolean                  default false                      not null,
+    urldoc       json,
+    created_by   text,
+    created_at   timestamp with time zone default now()                      not null,
+    modified_by  text,
+    modified_at  timestamp with time zone default now()                      not null,
+    deleted_by   text,
+    deleted_at   timestamp with time zone,
+    modified_cnt bigint                   default 1                          not null,
+    imported_by  text,
+    imported_at  timestamp with time zone,
+    imported     boolean generated always as ((asset_id IS NOT NULL)) stored not null,
+    uin          text[]
+);

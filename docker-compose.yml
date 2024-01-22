@@ -26,6 +26,7 @@ networks:
 services:
 
   # Simplified Eliona database as backend.
+  # CONNECTION_STRING=postgres://postgres:secret@database:5432
   # CONNECTION_STRING=postgres://postgres:secret@localhost:5432
   database:
     image: debezium/postgres:12
@@ -43,6 +44,7 @@ services:
       - "5432:5432"
 
   # Server representing the Eliona API.
+  # API_ENDPOINT=http://api-v2:3000/v2
   # API_ENDPOINT=http://localhost:3000/v2
   api-v2:
     image: eliona/api-v2:latest
@@ -53,11 +55,13 @@ services:
       - database
     environment:
       CONNECTION_STRING: postgres://postgres:secret@database:5432
+      BROKERS: kafka:9092
     restart: always
     ports:
       - "3000:3000"
 
   # Kafka broker
+  # BROKERS=kafka:9092
   # BROKERS=localhost:9092
   kafka:
     image: confluentinc/cp-kafka:7.3.0
@@ -78,6 +82,25 @@ services:
     volumes:
       - ./init/kraft-update.sh:/kraft-update.sh
     command: "bash -c '/kraft-update.sh && /etc/confluent/docker/run'"
+
+  init-kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    networks:
+      eliona-mock-network:
+    depends_on:
+      - kafka
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server kafka:29092 --list
+
+      echo -e 'Creating kafka topics'
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic eliona.calculator.raw.v1 --replication-factor 1 --partitions 1
+
+      echo -e 'Successfully created the following topics:'
+      kafka-topics --bootstrap-server kafka:29092 --list
+      "
 
   debezium:
     image: debezium/connect:1.9
