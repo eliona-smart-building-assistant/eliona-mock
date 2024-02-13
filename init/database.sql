@@ -78,6 +78,8 @@ create table if not exists public.asset
     unique (gai, proj_id)
 );
 
+ALTER TABLE public.asset REPLICA IDENTITY FULL;
+
 create extension if not exists ltree;
 
 create table if not exists public.asset_tree
@@ -453,7 +455,7 @@ values  (null, null, 3, null, false, 'api.nodes', false, 1),
         (null, null, 3, null, false, 'api.users', false, 1),
         (null, null, 3, null, false, 'api.projects', false, 1),
         (null, null, 3, null, false, 'api.tags', false, 1),
-        (null, null, 3, null, false, 'attribute.display', false, 1);
+        (null, null, 3, null, false, 'api.asset.listener', false, 1);
 
 create table if not exists public.keyauth (
     key_id  integer,
