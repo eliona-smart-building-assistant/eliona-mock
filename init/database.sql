@@ -26,6 +26,7 @@ create table if not exists public.asset_type
     payload_fct        text,
     vendor             text,
     model              text,
+    tracker            boolean default false not null,
     translation        jsonb,
     urldoc             text,
     allowed_inactivity interval,
@@ -66,7 +67,6 @@ create table if not exists public.asset
     description text,
     tags        text[],
     ar          boolean                  default false                        not null,
-    tracker     boolean                  default false                        not null,
     urldoc      json,
     created_by  text,
     created_at  timestamp with time zone default now() not null,
@@ -75,6 +75,7 @@ create table if not exists public.asset
     deleted_by  text,
     deleted_at  timestamp with time zone,
     archived    boolean generated always as ((deleted_at IS NOT NULL)) stored not null,
+    tracker_id  integer,
     unique (gai, proj_id)
 );
 
@@ -550,7 +551,8 @@ create table if not exists public.eliona_project (
 create table if not exists public.tags (
     name     text                 not null        primary key,
     color_id integer default 3    not null,
-    custom   boolean default true not null
+    custom   boolean default true not null,
+    category_id integer
 );
 
 create table if not exists public.gui_access (
@@ -583,7 +585,8 @@ create table if not exists public.user_notification (
     seen        boolean                  default false not null,
     read        boolean                  default false not null,
     deleted     boolean                  default false not null,
-    reminder_at timestamp with time zone
+    reminder_at timestamp with time zone,
+    summarized  boolean default false not null
 );
 
 insert into public.eliona_secret (schema, secret)
@@ -641,7 +644,6 @@ create table if not exists import.asset
     description  text,
     tags         text[],
     ar           boolean                  default false                      not null,
-    tracker      boolean                  default false                      not null,
     urldoc       json,
     created_by   text,
     created_at   timestamp with time zone default now()                      not null,
@@ -653,5 +655,6 @@ create table if not exists import.asset
     imported_by  text,
     imported_at  timestamp with time zone,
     imported     boolean generated always as ((asset_id IS NOT NULL)) stored not null,
-    uin          text[]
+    uin          text[],
+    tracker_id   integer
 );
