@@ -125,6 +125,8 @@ create table if not exists public.attribute_schema
     seq             smallint,
     source_path     text[],
     virtual         boolean,
+    category        text,
+    default         json,
     unique (asset_type, subtype, attribute)
 );
 
