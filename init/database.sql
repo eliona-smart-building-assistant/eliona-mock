@@ -32,7 +32,7 @@ create table if not exists public.asset_type
     allowed_inactivity interval,
     iv_asset_type      numeric,
     icon               text,
-    type_id            integer
+    type_id            integer default 0 not null
 );
 
 create sequence if not exists public.eliona_project_proj_id_seq;
