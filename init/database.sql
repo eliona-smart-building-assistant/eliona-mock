@@ -21,7 +21,7 @@ create schema if not exists public;
 
 create table if not exists public.asset_type
 (
-    asset_type         text not null primary key,
+    asset_type         text not null,
     custom             boolean default true not null,
     payload_fct        text,
     vendor             text,
