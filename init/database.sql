@@ -48,7 +48,8 @@ create table public.eliona_project
     logo        text,
     palette     json,
     logo_big    boolean default false,
-    logo_white  boolean default false
+    logo_white  boolean default false,
+    default_ticket_assignee_id text
 );
 
 create table if not exists public.asset
@@ -76,6 +77,7 @@ create table if not exists public.asset
     deleted_at  timestamp with time zone,
     archived    boolean generated always as ((deleted_at IS NOT NULL)) stored not null,
     tracker_id  integer,
+    key_access  boolean,
     unique (gai, proj_id)
 );
 
@@ -125,7 +127,9 @@ create table if not exists public.attribute_schema
     seq             smallint,
     source_path     text[],
     virtual         boolean,
-    unique (asset_type, subtype, attribute)
+    unique (asset_type, subtype, attribute),
+    category        text,
+    "default"         json
 );
 
 create table if not exists public.heap
@@ -586,7 +590,9 @@ create table if not exists public.user_notification (
     read        boolean                  default false not null,
     deleted     boolean                  default false not null,
     reminder_at timestamp with time zone,
-    summarized  boolean default false not null
+    summarized  boolean default false not null,
+    detail text,
+    link text
 );
 
 insert into public.eliona_secret (schema, secret)
@@ -656,5 +662,6 @@ create table if not exists import.asset
     imported_at  timestamp with time zone,
     imported     boolean generated always as ((asset_id IS NOT NULL)) stored not null,
     uin          text[],
-    tracker_id   integer
+    tracker_id   integer,
+    key_access  boolean
 );
