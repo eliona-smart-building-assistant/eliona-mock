@@ -3,16 +3,18 @@
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
     "tasks.max": "1",
-    "database.hostname": "database",
+    "plugin.name": "pgoutput",
+    "database.hostname": "eliona-mock-database",
     "database.port": "5432",
     "database.user": "postgres",
     "database.password": "secret",
     "database.dbname": "postgres",
-    "database.server.name": "eliona",
+    "topic.prefix": "eliona",
+    "table.include.list": "public.heap,public.asset,public.alarm",
     "key.converter": "org.apache.kafka.connect.json.JsonConverter",
     "key.converter.schemas.enable": false,
-    "value.converter.schemas.enable": false,
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": false,
     "decimal.handling.mode": "double",
     "errors.tolerance": "all"
   }
