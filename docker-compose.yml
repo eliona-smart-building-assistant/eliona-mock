@@ -83,7 +83,7 @@ services:
 
   # Writes data from eliona.calculator.raw.v1 into public.heap, like the platform calculator.
   calculator:
-    image: insolare/mockprocessor:latest
+    image: insolare/mockprocessor:v26
     container_name: eliona-mock-calculator
     networks: [eliona-mock-network]
     depends_on:
