@@ -6,8 +6,8 @@ for the API listeners.
 
 ## Versions
 
-Each tag of this repository matches one platform version: tag `v26.4.3` runs `eliona/api-v2:v26.4.3` on the
-database of platform `v26.4.3` (see `init/VERSION`). Pin the tag of the platform version your app targets.
+This is tag `legacy-v14`, the mock for apps on platform v14: `eliona/api-v2:v14.2.8` on the database of platform
+`v14.2.12` (see `init/VERSION`). Apps on v26 use the `v26.*` tags.
 
 Tags `v2.x` are the earlier hand-written mock for apps with their own database schema; they are no longer updated.
 
@@ -26,7 +26,7 @@ docker compose up -d
 
 API v2 is published for `linux/amd64` only; on Apple Silicon Docker runs it through emulation.
 
-The mock starts with one tenant and no project. Create a project and use its ID in your app:
+The mock starts without a project. Create a project and use its ID in your app:
 
 ```sh
 curl -X PUT localhost:3000/v2/projects -H 'X-API-Key: secret' -H 'Content-Type: application/json' \
@@ -54,7 +54,7 @@ Maintainers with access to the platform images regenerate the database:
 
 ```sh
 az acr login -n mybuildingsmeu1
-scripts/generate.sh v26.4.4
+API_VERSION=v14.2.8 scripts/generate.sh v14.2.12
 ```
 
 The script deploys the real database image of that version, keeps what API v2 of the same version needs

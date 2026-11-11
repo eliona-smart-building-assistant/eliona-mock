@@ -84,6 +84,29 @@ for root, dirs, files in os.walk(src_dir):
                 if SQL_WORD.search(s):
                     seed |= names_in(s, ("public", "api"))
 
+# Seed: tables behind generated SQLBoiler and go-jet models that hand-written code references (api-v2 v14).
+BOIL = re.compile(r"^\s*([A-Z]\w*):\s*\"([a-z_][a-z0-9_]*)\",", re.M)
+JET = re.compile(r"^var ([A-Z]\w*) = new\w*Table\(\"([a-z_][a-z0-9_]*)\", \"([a-z_][a-z0-9_]*)\"", re.M)
+models, code = {}, []
+for root, dirs, files in os.walk(src_dir):
+    dirs[:] = [d for d in dirs if d not in ("it", "it-mock", ".git", "vendor")]
+    for f in files:
+        if not f.endswith(".go") or f.endswith("_test.go"):
+            continue
+        path = os.path.join(root, f)
+        text = open(path, encoding="utf-8", errors="ignore").read()
+        if f == "boil_table_names.go":
+            for go, table in BOIL.findall(text.split("}{", 1)[-1]):
+                models.setdefault(go, set()).add((os.path.basename(root), table))
+        for go, schema, table in JET.findall(text):
+            models.setdefault(go, set()).add((schema, table))
+        if os.sep + "db" + os.sep not in path:
+            code.append(text)
+for ident in set(re.findall(r"\b[a-z]\w*\.([A-Z]\w*)", "\n".join(code))):
+    match = max((g for g in models if ident.startswith(g)), key=len, default=None)
+    for schema, table in models.get(match, ()):
+        seed |= {(PG_CLASS, o) for s, o in by_name_rel.get(table, []) if s == schema}
+
 # Closure: owned sub-objects, forward dependencies and names referenced in function bodies.
 keep, extensions, todo = set(), set(), list(seed)
 while todo:

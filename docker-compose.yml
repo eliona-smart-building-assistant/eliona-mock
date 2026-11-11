@@ -64,7 +64,7 @@ services:
     restart: "no"
 
   api-v2:
-    image: eliona/api-v2:v26.4.3
+    image: eliona/api-v2:v14.2.8
     platform: linux/amd64
     container_name: eliona-mock-api-v2
     networks: [eliona-mock-network]
@@ -83,7 +83,7 @@ services:
 
   # Writes data from eliona.calculator.raw.v1 into public.heap, like the platform calculator.
   calculator:
-    image: insolare/mockprocessor:v26
+    image: insolare/mockprocessor:v14
     container_name: eliona-mock-calculator
     networks: [eliona-mock-network]
     depends_on:
