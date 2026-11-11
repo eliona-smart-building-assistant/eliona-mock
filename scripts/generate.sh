@@ -11,6 +11,7 @@
 set -euo pipefail
 
 VERSION=${1:?usage: $0 <platform version, e.g. v26.4.3>}
+API_VERSION=${API_VERSION:-$VERSION}  # api-v2 tag when it differs from the database version
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK="$ROOT/.generate"
 POSTGRES_IMAGE=${POSTGRES_IMAGE:-mybuildingsmeu1.azurecr.io/eliona/core/postgres16:latest-20260918}
@@ -23,10 +24,10 @@ cleanup() { docker rm -f "$DB" >/dev/null 2>&1 || true; docker network rm "$NET"
 trap cleanup EXIT
 mkdir -p "$WORK"
 
-echo "api-v2 $VERSION source"
-git -C "$WORK/api-v2" fetch --depth 1 origin tag "$VERSION" 2>/dev/null \
-    || git clone --quiet --depth 1 --branch "$VERSION" "$API_REPO" "$WORK/api-v2"
-git -C "$WORK/api-v2" checkout --quiet "$VERSION"
+echo "api-v2 $API_VERSION source"
+git -C "$WORK/api-v2" fetch --depth 1 origin tag "$API_VERSION" 2>/dev/null \
+    || git clone --quiet --depth 1 --branch "$API_VERSION" "$API_REPO" "$WORK/api-v2"
+git -C "$WORK/api-v2" checkout --quiet "$API_VERSION"
 
 echo "database $VERSION"
 cleanup

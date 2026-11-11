@@ -9,7 +9,7 @@ for the API listeners.
 Each tag of this repository matches one platform version: tag `v26.4.3` runs `eliona/api-v2:v26.4.3` on the
 database of platform `v26.4.3` (see `init/VERSION`). Pin the tag of the platform version your app targets.
 
-Tags `v2.x` are the earlier hand-written mock for apps with their own database schema; they are no longer updated.
+Tag `legacy-v14` is the mock for apps on platform v14 (branch `legacy/v14`). Tags `v2.x` are the earlier hand-written mock for apps with their own database schema; they are no longer updated.
 
 ## Start
 
@@ -62,3 +62,6 @@ The script deploys the real database image of that version, keeps what API v2 of
 writes `init/00-roles.sql`, `init/10-schema.sql`, `init/20-data.sql` and `init/VERSION`. Then set the same
 version for `eliona/api-v2` in `docker-compose.yml`, start the mock, check an app against it and tag the commit
 with the version.
+
+When the api-v2 tag differs from the database tag, set it with `API_VERSION`; `legacy-v14` was generated with
+`API_VERSION=v14.2.8 scripts/generate.sh v14.2.12`.
